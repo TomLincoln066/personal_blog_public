@@ -11,16 +11,46 @@ from forms import LoginForm, RegisterForm, CreatePostForm, CommentForm
 from flask_gravatar import Gravatar
 import os
 
+import sqlalchemy as sa
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get("BLOG_FLASK_APP_SECRET_KEY")
+
+# Determine the folder of the top-level directory of this project
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+
 ckeditor = CKEditor(app)
 Bootstrap(app)
 gravatar = Gravatar(app, size=100, rating='g', default='retro', force_default=False, force_lower=False, use_ssl=False, base_url=None)
+
+
+if os.getenv('SQLALCHEMY_DATABASE_URI'):
+        SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI').replace("postgres://", "postgresql://", 1)
+else:
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(BASEDIR, 'instance', 'blog.db')}"
+
 
 ##CONNECT TO DB
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+
+# Check if the database needs to be initialized
+engine = sa.create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+inspector = sa.inspect(engine)
+if not inspector.has_table("users"):
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        app.logger.info('Initialized the database!')
+else:
+    app.logger.info('Database already contains the users table.')
+
+
+
+
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 
